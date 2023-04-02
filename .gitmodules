@@ -1,3 +1,6 @@
 [submodule "bot/cmdClient"]
 	path = bot/cmdClient
 	url = https://github.com/Intery/dpy-cmdClient.git
+[submodule "cmdclient"]
+	path = cmdclient
+	url = https://github.com/Intery/dpy-cmdClient.git
