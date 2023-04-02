@@ -9,7 +9,7 @@ from .cursor import DictLoggingCursor
 
 # Set up database connection
 log("Establishing connection.", "DB_INIT", level=logging.DEBUG)
-conn = psy.connect(conf.bot['database'], cursor_factory=DictLoggingCursor)
+conn = psy.connect(conf.bot['database'],user='postgres',password='admin', cursor_factory=DictLoggingCursor)
 
 # Replace char used by the connection for query formatting
 _replace_char: str = '%s'
