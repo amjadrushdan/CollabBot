@@ -14,3 +14,4 @@ from .moderation import *
 from .accountability import *
 from .plugins import *
 from .sponsors import *
+from .polling import *

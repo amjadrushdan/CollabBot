@@ -21,7 +21,7 @@ async def update_status():
     student_count, room_count = client.data.current_sessions.select_one_where(
         select_columns=("COUNT(*) AS studying_count", "COUNT(DISTINCT(channelid)) AS channel_count"),
     )
-    status = "{} students in {} study rooms!".format(student_count, room_count)
+    status = "!help for commands"
 
     await client.change_presence(
         activity=discord.Activity(

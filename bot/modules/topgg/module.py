@@ -35,7 +35,7 @@ async def unregister_hook(client):
     client.log("Unloaded top.gg hooks.", context="TOPGG")
 
 boostfree_groups = {'Meta'}
-boostfree_commands = {'config', 'pomodoro'}
+boostfree_commands = {'config', 'pomodoro','polling'}
 
 
 async def topgg_reply_wrapper(func, ctx: LionContext, *args, suggest_vote=True, **kwargs):
@@ -49,30 +49,6 @@ async def topgg_reply_wrapper(func, ctx: LionContext, *args, suggest_vote=True, 
         pass
     elif ctx.guild and getattr(ctx.client.data, "premium_guilds", None) and getattr(ctx.client.data.premium_guilds, "queries", None).fetch_guild(ctx.guild.id):
         pass
-    elif not get_last_voted_timestamp(ctx.author.id):
-        upvote_info_formatted = upvote_info.format(lion_yayemote, ctx.best_prefix, lion_loveemote)
-
-        if 'embed' in kwargs and ctx.cmd.name not in sponsored_commands:
-            # Add message as an extra embed field
-            kwargs['embed'].add_field(
-                name="\u200b",
-                value=(
-                    upvote_info_formatted
-                ),
-                inline=False
-            )
-        else:
-            # Add message to content
-            if 'content' in kwargs and kwargs['content']:
-                if len(kwargs['content']) + len(upvote_info_formatted) < 1998:
-                    kwargs['content'] += '\n\n' + upvote_info_formatted
-            elif args:
-                if len(args[0]) + len(upvote_info_formatted) < 1998:
-                    args = list(args)
-                    args[0] += '\n\n' + upvote_info_formatted
-            else:
-                kwargs['content'] = upvote_info_formatted
-
     return await func(ctx, *args, **kwargs)
 
 

@@ -24,13 +24,13 @@ class Tasklist:
     messages = {}  # Map messageid -> Tasklist
 
     checkmark = "✔"
-    block_size = 15
+    block_size = 10
 
-    next_emoji = conf.emojis.forward
-    prev_emoji = conf.emojis.backward
-    question_emoji = conf.emojis.question
-    cancel_emoji = conf.emojis.cancel
-    refresh_emoji = conf.emojis.refresh
+    next_emoji = '\u25b6'
+    prev_emoji = '\u25c0'
+    question_emoji = '\u2754'
+    cancel_emoji = '\u274c'
+    refresh_emoji = '\U0001F501'
 
     paged_reaction_order = (
         prev_emoji, cancel_emoji, question_emoji, refresh_emoji, next_emoji
@@ -225,7 +225,13 @@ class Tasklist:
         # Add the reactions
         self.has_paging = len(pages) > 1
         for emoji in (self.paged_reaction_order if self.has_paging else self.non_paged_reaction_order):
-            await message.add_reaction(emoji)
+            try:
+                await message.add_reaction(emoji)
+            except discord.errors.HTTPException as e:
+                if e.status == 400 and e.code == 10014:
+                    print(f"Unknown emoji '{emoji}' encountered. Skipping...")
+                else:
+                    raise e
 
         # Register
         if self.message:
