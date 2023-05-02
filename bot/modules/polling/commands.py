@@ -6,7 +6,7 @@ from .module import module
     name="poll",
     desc="Create a new poll",
     group="Productivity",
-    aliases=('poll','polls'),
+    aliases=('polling','polls'),
 )
 async def cmd_poll(ctx):
     """

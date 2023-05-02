@@ -19,7 +19,7 @@ def count_recent_for(userid, interval='24h'):
             curs.execute(
                 "SELECT SUM(reward_count) FROM tasklist_reward_history "
                 "WHERE "
-                "userid = {}"
+                "userid = {} "
                 "AND reward_time > timezone('utc', NOW()) - INTERVAL '{}'".format(userid, interval)
             )
             return curs.fetchone()[0] or 0

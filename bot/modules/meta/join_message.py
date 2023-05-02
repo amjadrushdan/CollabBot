@@ -30,7 +30,7 @@ Best of luck with your studies!
 @client.add_after_event('guild_join', priority=0)
 async def post_join_message(client: cmdClient, guild: discord.Guild):
     try:
-        await guild.me.edit(nick="Leo")
+        await guild.me.edit(nick="CollabBot")
     except discord.HTTPException:
         pass
     if (channel := guild.system_channel) and channel.permissions_for(guild.me).embed_links:
@@ -38,7 +38,7 @@ async def post_join_message(client: cmdClient, guild: discord.Guild):
             description=message
         )
         embed.set_author(
-            name="Hello everyone! My name is Leo, the StudyLion!",
+            name="Hello everyone!",
             icon_url="https://cdn.discordapp.com/emojis/933610591459872868.webp"
         )
         embed.set_image(url=animation_link)
