@@ -173,6 +173,7 @@ CREATE INDEX tasklist_reward_history_users ON tasklist_reward_history (userid, r
 CREATE TABLE reminders(
   reminderid SERIAL PRIMARY KEY,
   userid BIGINT NOT NULL,
+  groupid INTEGER,
   remind_at TIMESTAMP NOT NULL,
   content TEXT NOT NULL,
   message_link TEXT,

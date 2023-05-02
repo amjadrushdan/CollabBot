@@ -16,6 +16,7 @@ reminder_regex = re.compile(
     (^)?(?P<type> (?: \b in) | (?: every))
     \s*(?P<duration> (?: day| hour| (?:\d+\s*(?:(?:d|h|m|s)[a-zA-Z]*)?(?:\s|and)*)+))
     (?:(?(1) (?:, | ; | : | \. | to)? | $))
+    (?:\s*<@&?(?P<role>\d+)>?)?
     """,
     re.IGNORECASE | re.VERBOSE | re.DOTALL
 )
@@ -155,7 +156,7 @@ async def cmd_remindme(ctx, flags):
         match = re.search(reminder_regex, ctx.args)
         if match:
             repeating = match.group('type').lower() == 'every'
-
+            roles = match.group('role') 
             duration_str = match.group('duration').lower()
             if duration_str.isdigit():
                 duration = int(duration_str)
@@ -169,6 +170,10 @@ async def cmd_remindme(ctx, flags):
             content = (ctx.args[:match.start()] + ctx.args[match.end():]).strip()
             if content.startswith('to '):
                 content = content[3:].strip()
+
+            print(f"ctx.args: {ctx.args}")
+            print(f"roles: {roles}")
+            print(f"Content: {content}")
         else:
             # Legacy parsing, without requiring "in" at the front
             splits = ctx.args.split(maxsplit=1)
@@ -203,6 +208,7 @@ async def cmd_remindme(ctx, flags):
         # Create reminder
         reminder = Reminder.create(
             userid=ctx.author.id,
+            groupid=roles,
             content=content,
             message_link=ctx.msg.jump_url,
             interval=duration if repeating else None,

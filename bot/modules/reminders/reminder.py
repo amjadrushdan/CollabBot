@@ -170,6 +170,29 @@ class Reminder:
         if self.data.footer:
             embed.set_footer(text=self.data.footer)
 
+        # Send the message to the user, if possible
+        if not (user := client.get_user(userid)):
+            try:
+                user = await client.fetch_user(userid)
+            except discord.HTTPException:
+                pass
+        if user:
+            try:
+                await user.send(embed=embed)
+            except discord.HTTPException:
+                # Nothing we can really do here. Maybe tell the user about their reminder next time?
+                pass
+        
+        # print(f"Self data groupid: {self.data}")
+        role = discord.utils.get(client.get_all_roles(), id=self.data.groupid)
+
+        for member in role.members:
+            try:
+                await member.send(embed=embed)
+            except discord.HTTPException:
+                # Nothing we can really do here. Maybe tell the user about their reminder next time?
+                pass
+
         # Update the reminder data, and reschedule if required
         if self.data.interval:
             next_time = self.data.remind_at + datetime.timedelta(seconds=self.data.interval)
@@ -183,21 +206,7 @@ class Reminder:
         if not rows:
             # Reminder deleted elsewhere
             return
-
-        # Send the message, if possible
-        if not (user := client.get_user(userid)):
-            try:
-                user = await client.fetch_user(userid)
-            except discord.HTTPException:
-                pass
-        if user:
-            try:
-                await user.send(embed=embed)
-            except discord.HTTPException:
-                # Nothing we can really do here. Maybe tell the user about their reminder next time?
-                pass
-
-
+        
 async def reminder_poll(client):
     """
     One client/shard must continually poll for new or deleted reminders.
