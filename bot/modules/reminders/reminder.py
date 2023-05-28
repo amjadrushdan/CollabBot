@@ -183,16 +183,25 @@ class Reminder:
                 # Nothing we can really do here. Maybe tell the user about their reminder next time?
                 pass
         
-        # print(f"Self data groupid: {self.data}")
-        role = discord.utils.get(client.get_all_roles(), id=self.data.groupid)
+        url = self.data.message_link
+        guild_id = int(url.split('/')[4])
+        guild = client.get_guild(guild_id)
 
-        for member in role.members:
-            try:
-                await member.send(embed=embed)
-            except discord.HTTPException:
-                # Nothing we can really do here. Maybe tell the user about their reminder next time?
-                pass
-
+        if self.data.groupid is None:
+            print("No role found within the guild.")
+        else:
+            role_id = int(self.data.groupid)
+            role = guild.get_role(role_id)
+            
+            if role is not None:
+                for member in role.members:
+                    try:
+                        await member.send(embed=embed)
+                    except discord.HTTPException:
+                        # Nothing we can really do here. Maybe tell the user about their reminder next time?
+                        pass
+            else:
+                print("Role not found within the guild.")
         # Update the reminder data, and reschedule if required
         if self.data.interval:
             next_time = self.data.remind_at + datetime.timedelta(seconds=self.data.interval)

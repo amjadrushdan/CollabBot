@@ -112,7 +112,9 @@ class Tasklist:
         self._deactivation_task = None  # Task for scheduled tasklist deactivation
         self.interaction_lock = asyncio.Lock()  # Lock to ensure interactions execute sequentially
         self._deactivated = False  # Flag for checking deactivation
-
+        self.roles = member.roles
+        
+        print("self.roles : ",self.roles)
         if activate:
             # Populate the tasklist
             self._refresh()
@@ -143,14 +145,14 @@ class Tasklist:
         # Format tasks
         task_strings = [
             "{num:>{numlen}}. [{mark}] {content}".format(
-                num=i,
-                numlen=((self.block_size * (i // self.block_size + 1) - 1) // 10) + 1,
+                num=i+1,
+                numlen=((self.block_size * ((i+1) // self.block_size + 1) - 1) // 10) + 1,
                 mark=self.checkmark if task.completed_at else ' ',
                 content=task.content
             )
             for i, task in enumerate(self.tasklist)
         ]
-
+          
         # Split up tasklist into formatted blocks
         task_pages = [task_strings[i:i+self.block_size] for i in range(0, len(task_strings), self.block_size)]
         task_blocks = [
@@ -162,6 +164,10 @@ class Tasklist:
         task_count = len(task_strings)
         complete_count = len([task for task in self.tasklist if task.completed_at])
 
+        print("Page Count",page_count)
+        print("Task Count",task_count)
+        print("Complete Count",complete_count)
+        
         if task_count > 0:
             title = "TODO list ({}/{} complete)".format(
                 complete_count,
@@ -400,8 +406,12 @@ class Tasklist:
         """
         Delete tasks from the task list
         """
-        taskids = [self.tasklist[i].taskid for i in indexes]
+         # Adjust indexes to match 0-based indexing
+        adjusted_indexes = [i - 1 for i in indexes]
 
+        taskids = [self.tasklist[i].taskid for i in adjusted_indexes]
+        print("Task IDs:", taskids)  # Debugging statement
+         
         now = utc_now()
         return data.tasklist.update_where(
             {
@@ -415,7 +425,10 @@ class Tasklist:
         """
         Update the provided task with the new content
         """
-        taskid = self.tasklist[index].taskid
+        # Adjust index to match 0-based indexing
+        adjusted_index = index - 1
+        
+        taskid = self.tasklist[adjusted_index].taskid
 
         now = utc_now()
         return data.tasklist.update_where(
@@ -430,8 +443,14 @@ class Tasklist:
         """
         Mark provided tasks as complete
         """
-        taskids = [self.tasklist[i].taskid for i in indexes]
+        # Adjust indexes to match 0-based indexing
+        adjusted_indexes = [i - 1 for i in indexes]
+        
+        taskids = [self.tasklist[i].taskid for i in adjusted_indexes]
 
+        print("Adjusted index",adjusted_indexes)
+        print("taskids",taskids)
+        
         now = utc_now()
         return data.tasklist.update_where(
             {
@@ -446,7 +465,9 @@ class Tasklist:
         """
         Mark provided tasks as incomplete
         """
-        taskids = [self.tasklist[i].taskid for i in indexes]
+        # Adjust indexes to match 0-based indexing
+        adjusted_indexes = [i - 1 for i in indexes]
+        taskids = [self.tasklist[i].taskid for i in adjusted_indexes]
 
         now = utc_now()
         return data.tasklist.update_where(
@@ -511,7 +532,7 @@ class Tasklist:
         """
         # Parse provided ranges
         indexes = self._index_range_parser(userstr)
-
+        
         if indexes:
             self._delete_tasks(*indexes)
 

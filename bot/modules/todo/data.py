@@ -2,7 +2,7 @@ from data import RowTable, Table
 
 tasklist = RowTable(
     'tasklist',
-    ('taskid', 'userid', 'content', 'rewarded', 'created_at', 'completed_at', 'deleted_at', 'last_updated_at'),
+    ('taskid', 'userid','groupid', 'content', 'rewarded', 'created_at', 'completed_at', 'deleted_at', 'last_updated_at'),
     'taskid'
 )
 

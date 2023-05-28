@@ -14,9 +14,9 @@ from .reminder import Reminder
 reminder_regex = re.compile(
     r"""
     (^)?(?P<type> (?: \b in) | (?: every))
-    \s*(?P<duration> (?: day| hour| (?:\d+\s*(?:(?:d|h|m|s)[a-zA-Z]*)?(?:\s|and)*)+))
+    \s*(?P<duration> (?: day| hour| (?:\d{2}/\d{2}) | (?:\d+\s*(?:(?:d|h|m|s)[a-zA-Z]*)?(?:\s|and)*)))  
     (?:(?(1) (?:, | ; | : | \. | to)? | $))
-    (?:\s*<@&?(?P<role>\d+)>?)?
+    (?:\s*<@&?(?P<role>\d+)>?)?  # Matches role mentions, capturing the role ID as 'role' (optional)
     """,
     re.IGNORECASE | re.VERBOSE | re.DOTALL
 )
@@ -36,6 +36,7 @@ async def cmd_remindme(ctx, flags):
     Usage``:
         {prefix}remindme in <duration> to <task>
         {prefix}remindme every <duration> to <task>
+        {prefix}remindme in <duration> @<roles> to <task>
         {prefix}reminders
         {prefix}reminders --clear
         {prefix}reminders --remove
@@ -158,7 +159,22 @@ async def cmd_remindme(ctx, flags):
             repeating = match.group('type').lower() == 'every'
             roles = match.group('role') 
             duration_str = match.group('duration').lower()
-            if duration_str.isdigit():
+            # Check if the duration is in the format DD/MM
+            if '/' in duration_str:
+                try:
+                    date_parts = duration_str.split('/')
+                    day = int(date_parts[0])
+                    month = int(date_parts[1])
+                    current_year = datetime.datetime.now().year
+                    target_date = datetime.datetime(current_year, month, day)
+                    duration = (target_date - datetime.datetime.now()).total_seconds()
+                    if duration < 0:
+                        # Date has already passed
+                        duration = None
+                except ValueError:
+                    # Invalid date format, fallback to regular duration parsing
+                    duration = parse_dur(duration_str)
+            elif duration_str.isdigit():
                 duration = int(duration_str)
             elif duration_str == 'day':
                 duration = 24 * 60 * 60
@@ -171,9 +187,6 @@ async def cmd_remindme(ctx, flags):
             if content.startswith('to '):
                 content = content[3:].strip()
 
-            print(f"ctx.args: {ctx.args}")
-            print(f"roles: {roles}")
-            print(f"Content: {content}")
         else:
             # Legacy parsing, without requiring "in" at the front
             splits = ctx.args.split(maxsplit=1)
@@ -188,7 +201,7 @@ async def cmd_remindme(ctx, flags):
                 "Sorry, I didn't understand your reminder!\n"
                 "See `{prefix}help remindme` for usage and examples.".format(prefix=ctx.best_prefix)
             )
-
+            
         # Don't allow rapid repeating reminders
         if repeating and duration < 10 * 60:
             return await ctx.error_reply(
