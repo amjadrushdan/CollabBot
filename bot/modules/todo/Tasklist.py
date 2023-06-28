@@ -47,7 +47,7 @@ class Tasklist:
 
     _re_flags = re.DOTALL | re.IGNORECASE | re.VERBOSE
     add_regex = re.compile(
-        r"^(?: (?:add) | \+) \s+ (.+)",
+        r"^(?: (?:add) | \+) \s+ (.+?)(?: , \s+ (\d{2}/\d{2}))?$",
         _re_flags
     )
     delete_regex = re.compile(
@@ -114,7 +114,6 @@ class Tasklist:
         self._deactivated = False  # Flag for checking deactivation
         self.roles = member.roles
         
-        print("self.roles : ",self.roles)
         if activate:
             # Populate the tasklist
             self._refresh()
@@ -144,15 +143,16 @@ class Tasklist:
         """
         # Format tasks
         task_strings = [
-            "{num:>{numlen}}. [{mark}] {content}".format(
-                num=i+1,
-                numlen=((self.block_size * ((i+1) // self.block_size + 1) - 1) // 10) + 1,
+            "{num:>{numlen}}. [{mark}] {content}{deadline}".format(
+                num=i,
+                numlen=((self.block_size * ((i) // self.block_size + 1) - 1) // 10) + 1,
                 mark=self.checkmark if task.completed_at else ' ',
-                content=task.content
+                content=task.content,
+                deadline=f" (Deadline: {task.deadline.strftime('%d/%m')})" if task.deadline else ""
             )
             for i, task in enumerate(self.tasklist)
         ]
-          
+        
         # Split up tasklist into formatted blocks
         task_pages = [task_strings[i:i+self.block_size] for i in range(0, len(task_strings), self.block_size)]
         task_blocks = [
@@ -164,10 +164,6 @@ class Tasklist:
         task_count = len(task_strings)
         complete_count = len([task for task in self.tasklist if task.completed_at])
 
-        print("Page Count",page_count)
-        print("Task Count",task_count)
-        print("Complete Count",complete_count)
-        
         if task_count > 0:
             title = "TODO list ({}/{} complete)".format(
                 complete_count,
@@ -388,29 +384,27 @@ class Tasklist:
 
                 # TODO: Message in channel? Might be too spammy?
                 pass
-
-    def _add_tasks(self, *tasks):
+            
+    # Add provided tasks to the task list    
+    def _add_tasks(self, tasks, deadline_dates):
         """
         Add provided tasks to the task list
         """
+        now = utc_now()
         insert = [
-            (self.member.id, task)
-            for task in tasks
+            (self.member.id, task, self.channel.id, now, deadline_date)
+            for task, deadline_date in zip(tasks, deadline_dates)
         ]
         return data.tasklist.insert_many(
             *insert,
-            insert_keys=('userid', 'content')
+            insert_keys=('userid', 'content', 'channelid', 'created_at', 'deadline')
         )
 
     def _delete_tasks(self, *indexes):
         """
         Delete tasks from the task list
         """
-         # Adjust indexes to match 0-based indexing
-        adjusted_indexes = [i - 1 for i in indexes]
-
-        taskids = [self.tasklist[i].taskid for i in adjusted_indexes]
-        print("Task IDs:", taskids)  # Debugging statement
+        taskids = [self.tasklist[i].taskid for i in indexes]
          
         now = utc_now()
         return data.tasklist.update_where(
@@ -425,10 +419,7 @@ class Tasklist:
         """
         Update the provided task with the new content
         """
-        # Adjust index to match 0-based indexing
-        adjusted_index = index - 1
-        
-        taskid = self.tasklist[adjusted_index].taskid
+        taskid = self.tasklist[index].taskid
 
         now = utc_now()
         return data.tasklist.update_where(
@@ -443,14 +434,8 @@ class Tasklist:
         """
         Mark provided tasks as complete
         """
-        # Adjust indexes to match 0-based indexing
-        adjusted_indexes = [i - 1 for i in indexes]
-        
-        taskids = [self.tasklist[i].taskid for i in adjusted_indexes]
-
-        print("Adjusted index",adjusted_indexes)
-        print("taskids",taskids)
-        
+        taskids = [self.tasklist[i].taskid for i in indexes]
+   
         now = utc_now()
         return data.tasklist.update_where(
             {
@@ -465,10 +450,7 @@ class Tasklist:
         """
         Mark provided tasks as incomplete
         """
-        # Adjust indexes to match 0-based indexing
-        adjusted_indexes = [i - 1 for i in indexes]
-        taskids = [self.tasklist[i].taskid for i in adjusted_indexes]
-
+        taskids = [self.tasklist[i].taskid for i in indexes]
         now = utc_now()
         return data.tasklist.update_where(
             {
@@ -497,7 +479,29 @@ class Tasklist:
         """
         Process arguments to an `add` request
         """
-        tasks = [line for line in userstr.splitlines() if line]
+        tasks = []
+        deadline_dates = []
+        
+        # Split the user input into lines and remove any empty lines
+        lines = [line.strip() for line in userstr.splitlines() if line.strip()]
+        current_year = datetime.datetime.now().year  # Get the current year
+        for line in lines:
+            parts = line.split(',', 1)  # Split at the first comma
+            task_name = parts[0].strip()
+            deadline_date = parts[1].strip() if len(parts) > 1 else None
+            
+            # Process the deadline date if available
+            if deadline_date:
+                try:
+                    deadline_date = datetime.datetime.strptime(deadline_date, "%d/%m")
+                    deadline_date = deadline_date.replace(year=current_year).date()
+                except ValueError:
+                    raise SafeCancellation("Invalid date format. Please use the format 'DD/MM'.")
+                
+            # Append the task name and deadline date (or None) to the respective lists
+            tasks.append(task_name)
+            deadline_dates.append(deadline_date)
+
         if not tasks:
             # TODO: Maybe have interactive input here
             return
@@ -521,11 +525,24 @@ class Tasklist:
             raise SafeCancellation("Please keep your tasks under `{}` characters long.".format(self.max_task_length))
 
         # Finally, add the tasks
-        self._add_tasks(*tasks)
+        self._add_tasks(tasks, deadline_dates)
 
         # Set the current page to the last one
         self.current_page = -1
-
+        
+    def parse_deadline(deadline_date):
+        """
+        Parse deadline date into a valid timestamp format
+        """
+        if deadline_date:
+            date_components = deadline_date.split('/')
+            day = int(date_components[0])
+            month = int(date_components[1])
+            year = datetime.datetime.now().year  # Assume the current year
+            return datetime.datetime(year, month, day).isoformat()
+        else:
+            return None
+    
     async def parse_delete(self, userstr):
         """
         Process arguments to a `delete` request

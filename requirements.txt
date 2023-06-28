@@ -8,3 +8,6 @@ psycopg2-binary
 pytz==2021.1
 topggpy
 psutil
+email-validator
+matplotlib
+pandas

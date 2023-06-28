@@ -1,14 +1,16 @@
 import asyncio
 import datetime
+from email.message import EmailMessage
 import logging
 import discord
+import smtplib
 
 from meta import client, sharding
 from utils.lib import strfdur
 
 from .data import reminders
 from .module import module
-
+from.data import email_data
 
 class Reminder:
     __slots__ = ('reminderid', '_task')
@@ -146,7 +148,99 @@ class Reminder:
             self.delete(self.reminderid)
             return
 
-        userid = self.data.userid
+        members = self.data.member_id
+        if members is None :
+                userid = self.data.userid
+                email_sql = email_data.select_where(
+                    userid=userid,
+                    select_columns=('useremail')
+                )
+
+                # Email segment
+                recipient_email = email_sql[0]  # Replace with the recipient's email address
+                
+                bot_email = "collabbot.discord@gmail.com"
+                email_subject = "Reminder"
+                email_message = """
+                Hi there,
+
+                This is a reminder: {}
+
+                Please check your Discord or click the link below:
+                {}
+
+                Best regards,
+                Collab Bot
+                """.format(self.data.content, self.data.message_link)
+
+                # Create the email message
+                email = EmailMessage()
+                email.set_content(email_message)
+                email["Subject"] = email_subject
+                email["From"] = bot_email  # Replace with BOT email address
+                email["To"] = recipient_email
+
+                print("recipient_email",recipient_email)
+                # Send the email
+                try:
+                    with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
+                        smtp.starttls()
+                        smtp.login(bot_email, "cpzrjmtvjlihbguz")
+                        smtp.send_message(email)
+                except smtplib.SMTPException as e:
+                    if "not a valid RFC-5321 address" in str(e):
+                        print("Skipping email sending for invalid address:", recipient_email)
+                    else:
+                        print("Failed to send email:", e)
+        else :
+            # Iterate over each member ID
+            for userid in members:
+                email_sql = email_data.select_where(
+                    userid=userid,
+                    select_columns=('useremail')
+                )
+                
+                # Email segment
+                recipient_email = email_sql[0]  # Replace with the recipient's email address
+                
+                # Skip to next recipient if recipient_email is None
+                if recipient_email is None:
+                    continue
+                
+                bot_email = "collabbot.discord@gmail.com"
+                email_subject = "Reminder"
+                email_message = """
+                Hi there,
+
+                This is a reminder: {}
+
+                Please check your Discord or click the link below:
+                {}
+
+                Best regards,
+                Collab Bot
+                """.format(self.data.content, self.data.message_link)
+
+                # Create the email message
+                email = EmailMessage()
+                email.set_content(email_message)
+                email["Subject"] = email_subject
+                email["From"] = bot_email  # Replace with BOT email address
+                email["To"] = recipient_email
+
+                print("recipient_email",recipient_email)
+                # Send the email
+                try:
+                    with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
+                        smtp.starttls()
+                        smtp.login(bot_email, "cpzrjmtvjlihbguz")
+                        smtp.send_message(email)
+                except smtplib.SMTPException as e:
+                    if "not a valid RFC-5321 address" in str(e):
+                        print("Skipping email sending for invalid address:", recipient_email)
+                    else:
+                        print("Failed to send email:", e)
+
 
         # Build the message embed
         embed = discord.Embed(
@@ -183,26 +277,6 @@ class Reminder:
                 # Nothing we can really do here. Maybe tell the user about their reminder next time?
                 pass
         
-        url = self.data.message_link
-        guild_id = int(url.split('/')[4])
-        guild = client.get_guild(guild_id)
-
-        if self.data.groupid is None:
-            print("No role found within the guild.")
-        else:
-            role_id = int(self.data.groupid)
-            role = guild.get_role(role_id)
-            
-            if role is not None:
-                for member in role.members:
-                    try:
-                        await member.send(embed=embed)
-                    except discord.HTTPException:
-                        # Nothing we can really do here. Maybe tell the user about their reminder next time?
-                        pass
-            else:
-                print("Role not found within the guild.")
-        # Update the reminder data, and reschedule if required
         if self.data.interval:
             next_time = self.data.remind_at + datetime.timedelta(seconds=self.data.interval)
             rows = reminders.update_where(

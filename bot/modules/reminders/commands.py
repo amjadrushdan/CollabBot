@@ -2,21 +2,23 @@ import re
 import asyncio
 import datetime
 import discord
-
+import smtplib
+from email.message import EmailMessage
+from discord import TextChannel
 from meta import sharding
 from utils.lib import parse_dur, parse_ranges, multiselect_regex
 
 from .module import module
 from .data import reminders
 from .reminder import Reminder
-
+from .data import email_data
 
 reminder_regex = re.compile(
     r"""
-    (^)?(?P<type> (?: \b in) | (?: every))
-    \s*(?P<duration> (?: day| hour| (?:\d{2}/\d{2}) | (?:\d+\s*(?:(?:d|h|m|s)[a-zA-Z]*)?(?:\s|and)*)))  
-    (?:(?(1) (?:, | ; | : | \. | to)? | $))
-    (?:\s*<@&?(?P<role>\d+)>?)?  # Matches role mentions, capturing the role ID as 'role' (optional)
+    (^)?(?P<type>(?:\b in)|(?: every))
+    \s*(?P<duration>(?: day| hour|(?:\d{2}/\d{2})|(?:\d+\s*(?:(?:d|h|m|s)[a-zA-Z]*)?(?:\s|and)*)))
+    (?:(?(1)(?:,|;|:|\.|to)?|$))
+    \s*(?P<everyone>@everyone)?\b
     """,
     re.IGNORECASE | re.VERBOSE | re.DOTALL
 )
@@ -46,6 +48,7 @@ async def cmd_remindme(ctx, flags):
         {prefix}remindme in 2h 20m, Revise chapter 1
         {prefix}remindme every hour, Drink water!
         {prefix}remindme Anatomy class in 8h 20m
+        {prefix}remindme in 05/06 to group meeting    
     """
     # TODO: (FUTURE) every day at 9:00
 
@@ -152,13 +155,15 @@ async def cmd_remindme(ctx, flags):
         content = None
         duration = None
         repeating = None
-
+        user_ids = None
+        
         # First parse it
         match = re.search(reminder_regex, ctx.args)
         if match:
             repeating = match.group('type').lower() == 'every'
-            roles = match.group('role') 
+            everyone_mention = match.group('everyone')
             duration_str = match.group('duration').lower()
+            
             # Check if the duration is in the format DD/MM
             if '/' in duration_str:
                 try:
@@ -171,6 +176,7 @@ async def cmd_remindme(ctx, flags):
                     if duration < 0:
                         # Date has already passed
                         duration = None
+                        
                 except ValueError:
                     # Invalid date format, fallback to regular duration parsing
                     duration = parse_dur(duration_str)
@@ -186,7 +192,15 @@ async def cmd_remindme(ctx, flags):
             content = (ctx.args[:match.start()] + ctx.args[match.end():]).strip()
             if content.startswith('to '):
                 content = content[3:].strip()
+            
+            if everyone_mention == '@everyone':
+                channel_id = ctx.ch.id  # Get the ID of the current channel
+                members = ctx.ch.members  # Get all the members in the current channel
+                user_ids = [member.id for member in members]  # Extract the user IDs of all members
 
+                print("ctx.ch: ",channel_id)
+                print("ctx.members: ",user_ids)
+            
         else:
             # Legacy parsing, without requiring "in" at the front
             splits = ctx.args.split(maxsplit=1)
@@ -218,14 +232,20 @@ async def cmd_remindme(ctx, flags):
                 "Sorry, you have reached your maximum of `{}` reminders!".format(reminder_limit)
             )
 
+        email_sql = email_data.select_where(
+            userid=ctx.author.id,
+            select_columns=('useremail')
+        )[0]
+        
+        
         # Create reminder
         reminder = Reminder.create(
             userid=ctx.author.id,
-            groupid=roles,
             content=content,
             message_link=ctx.msg.jump_url,
             interval=duration if repeating else None,
-            remind_at=datetime.datetime.utcnow() + datetime.timedelta(seconds=duration)
+            remind_at=datetime.datetime.utcnow() + datetime.timedelta(seconds=duration),
+            member_id = user_ids
         )
 
         # Schedule reminder
@@ -236,9 +256,16 @@ async def cmd_remindme(ctx, flags):
         embed = discord.Embed(
             title="Reminder Created!",
             colour=discord.Colour.orange(),
-            description="Got it! I will remind you <t:{}:R>.".format(reminder.timestamp),
             timestamp=datetime.datetime.utcnow()
         )
+        
+        if email_sql[0] is None:
+            embed.description = "Got it! I will remind you <t:{}:R>.\n\nTo register for email reminders, use the command `!email`."  
+        else:
+             embed.description = "Got it! I will remind you <t:{}:R>."
+
+        embed.description = embed.description.format(reminder.timestamp)
+        
         await ctx.reply(embed=embed)
     elif ctx.alias.lower() == 'remindme':
         # Show hints about adding reminders

@@ -1,5 +1,6 @@
 import asyncio
 import discord
+from bot.LionContext import LionContext
 
 from cmdClient.checks import in_guild
 
@@ -70,7 +71,7 @@ async def cmd_todo(ctx, flags):
 
     # TODO: Custom module, with pre-command hooks
     tasklist = Tasklist.fetch_or_create(ctx, flags, ctx.author, ctx.ch)
-
+    
     keys = {
         'add': (('add', ), tasklist.parse_add),
         'check': (('check', 'done', 'complete'), tasklist.parse_check),

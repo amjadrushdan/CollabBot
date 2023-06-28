@@ -15,3 +15,5 @@ from .accountability import *
 from .plugins import *
 from .sponsors import *
 from .polling import *
+from .email_folder import *
+from .chart import *

@@ -51,7 +51,8 @@ CREATE TABLE user_config(
   topgg_vote_reminder BOOLEAN,
   avatar_hash TEXT,
   API_timestamp BIGINT,
-  gems INTEGER DEFAULT 0
+  gems INTEGER DEFAULT 0,
+  useremail TEXT
 );
 -- }}}
 

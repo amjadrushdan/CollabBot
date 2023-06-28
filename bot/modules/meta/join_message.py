@@ -3,22 +3,11 @@ import discord
 from cmdClient import cmdClient
 
 from meta import client, conf
-from .lib import guide_link, animation_link
+from .lib import guide_link
 
 
 message = """
-Thank you for inviting me to your community.
-Get started by typing `{prefix}help` to see my commands, and `{prefix}config info` \
-    to read about my configuration options!
-
-To learn how to configure me and use all of my features, \
-    make sure to [click here]({guide_link}) to read our full setup guide.
-
-Remember, if you need any help configuring me, \
-    want to suggest a feature, report a bug and stay updated, \
-    make sure to join our main support and study server by [clicking here]({support_link}).
-
-Best of luck with your studies!
+Hello there i am Collab Bot.
 
 """.format(
     guide_link=guide_link,
@@ -41,7 +30,6 @@ async def post_join_message(client: cmdClient, guild: discord.Guild):
             name="Hello everyone!",
             icon_url="https://cdn.discordapp.com/emojis/933610591459872868.webp"
         )
-        embed.set_image(url=animation_link)
         try:
             await channel.send(embed=embed)
         except discord.HTTPException:

@@ -2,12 +2,15 @@ import re
 import discord
 from .module import module
 
+# command basic information
 @module.cmd(
     name="poll",
     desc="Create a new poll",
     group="Productivity",
     aliases=('polling','polls'),
 )
+
+# Poll command usage examples
 async def cmd_poll(ctx):
     """
     Usage``:
